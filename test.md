@@ -1,5 +1,5 @@
 ---
-author: @tdewin
+author: "@tdewin"
 title: Demo of inline SVG
 ---
 
