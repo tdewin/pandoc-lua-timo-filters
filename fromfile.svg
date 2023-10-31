@@ -1,0 +1,29 @@
+<svg viewbox="0 0 200 120" width="200" height="120" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="linear" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#12d800"/>
+      <stop offset="100%" stop-color="#00d8ad"/>
+      </linearGradient>
+    </defs>
+    <style>
+        .text {
+          font-family: Tahoma;
+          font-size: 50;
+          font-weight: bold;
+          fill: #12d800;
+        }
+        .subtext {
+          font-family: Tahome;
+          font-size: 15;
+          fill: #4f4f4f;
+        }
+        rect {
+          fill:#ffffff;
+          stroke-width:3;
+          stroke:url(#linear);
+        } 
+    </style>
+     
+     <text y="60" x="50%"  text-anchor="middle"  class="text">{{big}}</text>
+     <text y="90" x="50%"   text-anchor="middle" class="subtext">{{small}}</text> 
+</svg>

@@ -1,0 +1,21 @@
+---
+big: BBQ Chicken
+small: Cheese, Chicken, BBQ Sauce
+l: 5
+xl: 10
+price: 20
+name: bbq
+---
+big: 4 Formaggi
+small: 4 different kind of cheeses 
+l: 5
+xl: 10
+price: 18
+name: 4cheese
+---
+big: Frutti di Mare
+small: Cheese, Shelfish
+l: 5
+xl: 12
+price: 25
+name: sea
