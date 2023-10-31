@@ -37,7 +37,8 @@ Svg inline (should be visible) without templating
 </svg>
 ```
 
-# Template
+# Template (aka Make your own pizza menu)
+
 template (should not be visibe) in final document:
 ```template {name="digitx"}
 <svg viewbox="0 0 200 120" width="200" height="120" xmlns="http://www.w3.org/2000/svg">
@@ -79,15 +80,112 @@ big: 100%
 small: Happy Users
 name: users
 ---
-big: 10
-small: Birds in the sky
+big: 20
+small: Different Pizza
 name: experience
 ---
-big: 1
-small: SVG Format
+big: 24/7
+small: Closed on Tuesday
 name: format
 ```
 
+
+
+
+```template {name="menu"}
+<svg viewbox="0 0 300 60" width="300" height="80" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="linear" x1="0%" y1="0%" x2="100%" y2="100%">
+  <stop offset="0%" stop-color="#12d800"/>
+  <stop offset="100%" stop-color="#00d8ad"/>
+  </linearGradient>
+</defs>
+<style>
+    .text {
+      font-family: Tahoma;
+      font-size: 20;
+      
+      fill: #12d800;
+    }
+    .subtext {
+      font-family: Tahome;
+      font-size: 12;
+      fill: #4f4f4f;
+    }
+    .price {
+      font-family: Tahome;
+      font-size: 20;    
+      fill: #efefef;
+    }
+    .bold {
+      font-weight: bold;
+    }
+    circle {
+      fill:url(#linear);
+      stroke-width:2;
+      stroke: #efefef;
+    } 
+</style>
+ <text y="30" x="0%"    text-anchor="start"  class="text bold">{{big}}</text>
+
+ <circle  cy="40" cx="265" r="25"  ></circle>
+
+ <text y="46" x="265"  text-anchor="middle"   class="price bold">{{price}}€</text>
+s
+ <text y="50" x="5%"    text-anchor="start" class="subtext">
+  <tspan x="0" >{{small}}</tspan>
+  <tspan x="0" dy="1.2em"> Medium Pizza, <tspan class="bold">+{{l}}€</tspan> Large, <tspan class="bold">+{{xl}}€</tspan> XL </tspan>
+</text> 
+</svg>
+```
+```svg {ref=menu out=./media/stat1 alt="Hello Template" namefield="name" fromfile="menu.yaml"}
+```
+
+# Mini text templating
+
+Example with inline data
+
+```template {name="tab"} 
+
+# {{planet}}
+
+* type: {{type}}
+* order: {{num}} 
+
+```
+
+```use {ref=tab}
+---
+num: 3
+planet: Earth
+type: Rock
+---
+num: 3
+planet: Mars
+type: Rock
+---
+num: 4
+planet: Jupiter
+type: Gas
+```
+
+
+More advanced inception example. Template has markdown. 
+
+Blockdata will insert or append data in front of the file 1 time. Only works in combination of fromfile
+
+This is useful if you want to make tables
+
+```template {name="plainmenu"}
+| {{big}} | ({{small}}) | {{price}}€ |
+
+```
+
+```use {ref=plainmenu namefield="name" blockdata="insert" fromfile="menu.yaml"}
+| Pizza | Ingredients | Price |
+| --- | --- | --- |
+
+```
 
 ```svg {ref=digitx out=./media/stat1 alt="Hello Template" namefield="name"}
 ---
@@ -95,6 +193,19 @@ big: 2
 small: Referencing
 name: secondref
 ```
+
+```template {name="digitxfromfile" fromfile=./fromfile.svg} 
+```
+```svg {ref=digitxfromfile out=./media/planets alt="Hello Template" namefield="name"}
+---
+big: 9
+small: Planets
+name: reffromfile
+```
+
+
+
+
 # How to convert
 
 should not even try to convert it
