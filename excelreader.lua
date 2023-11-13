@@ -156,9 +156,11 @@ function ByteStringReader (input)
                     local widths = {} 
                     
 
+                    colwidth = (1/colsn)--creates a nice full width table in docx
+
                     for i=1,colsn do
                         table.insert(aligns,pandoc.AlignDefault)
-                        table.insert(widths,0)-- let pandoc determine col widths
+                        table.insert(widths,colwidth)
                     end
 
                     local tab = pandoc.SimpleTable(
@@ -172,7 +174,8 @@ function ByteStringReader (input)
                     local stab = pandoc.utils.from_simple_table(tab)
                     
                     table.insert(doc,stab)
-                    
+                --else
+                    --print("Cant find range for",v["name"])
                 end
                 
             end
