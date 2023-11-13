@@ -22,6 +22,6 @@ Soon you will wonder, did I create the header table manually?
 
 Will convert the inline svg to real files
 ```bash
-pandoc -L svgtofile.lua -o mydoc.docx test.md
+pandoc -L svgtofile.lua -o mydoc.docx svgtofiledemo.md
 ```
 
