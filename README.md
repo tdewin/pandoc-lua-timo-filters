@@ -10,6 +10,8 @@ All is MIT License
 
 ## Excelreader
 
+Pretty bad excel reader. Doesn't use propper XML parser so breaks faster than a flinstone car. It is only meant to extract some strings and values.
+
 Creates table from excel sheets. Every sheets get a header 1 and the sheet is converted to a cell. Only keeps the value of course
 ```bash
 pandoc -f excelreader.lua -t gfm exceltest.xlsx
