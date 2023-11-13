@@ -1,4 +1,6 @@
-
+-- Pretty bad excel reader for pandoc
+-- github.com/tdewin/pandoc-lua-timo-filters
+-- MIT license
 
 function zip_get_entry(openzip,path)
     for i,entry in pairs(openzip.entries) do
