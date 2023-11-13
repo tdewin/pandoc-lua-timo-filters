@@ -34,7 +34,6 @@ local function XLSAZtoNum(az)
     return n
 end
 
--- AA11 to 27,11
 local function XLScoord(aznum)
     a,d = string.match(aznum,"([%a]+)([%d]+)")
     return XLSAZtoNum(a),tonumber(d)
@@ -116,9 +115,13 @@ function ByteStringReader (input)
                     colsn = ex-sx+1
                     rowsn = ey-sy+1
                     
-                    rows = {}
-                    
-                    for r=1,rowsn do
+                    local rows = {}
+                    local headers = {}
+
+                    for c=1,colsn do
+                        table.insert(headers,"")
+                    end
+                    for r=2,rowsn do
                         cols = {}
                         for c=1,colsn do
                             table.insert(cols,"")
@@ -137,7 +140,11 @@ function ByteStringReader (input)
                                 if string.find(t,"t=\"s\"") then
                                     cv = sharedStrings[tonumber(v)]
                                 end
-                                rows[localrow][localcol] = cv
+                                if localrow == 1 then
+                                    headers[localcol] = cv
+                                else
+                                    rows[localrow-1][localcol] = cv
+                                end
                             end
                        end
                     end
@@ -147,7 +154,7 @@ function ByteStringReader (input)
                     local caption = ""
                     local aligns = {}
                     local widths = {} 
-                    local headers = {}
+                    
 
                     for i=1,colsn do
                         table.insert(aligns,pandoc.AlignDefault)
