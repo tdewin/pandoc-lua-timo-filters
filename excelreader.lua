@@ -34,6 +34,7 @@ local function XLSAZtoNum(az)
     return n
 end
 
+-- AA11 to 27,11
 local function XLScoord(aznum)
     a,d = string.match(aznum,"([%a]+)([%d]+)")
     return XLSAZtoNum(a),tonumber(d)
