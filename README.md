@@ -18,6 +18,19 @@ pandoc -f excelreader.lua -t gfm exceltest.xlsx
 ```
 Soon you will wonder, did I create the header table manually?
 
+Or also inline. header false means that a title will not be added in front of the table
+
+Sheets is a list of sheet separated by ,
+
+widths is a list of column widths. If not all columns are separated, the remaining space is divided over the remaining columns. Eg 3 columns but one define with 0.2 results in budget = 1-0.2, budget over the remaining 2 columns is 0.4 per column. Alternative use defwidth to set up a default width instead of using a budget calculation.
+
+````markdown
+```xlsx {file="myexcel.xlsx" header="false"}
+sheets: [Data]
+widths: [0.2]
+```
+````
+
 ## Svgtofile
 
 Will convert the inline svg to real files
