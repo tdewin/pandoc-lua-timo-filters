@@ -18,6 +18,34 @@ local function has_value (tab, val)
 
     return false
 end
+
+local function flaky_xml_parser(xmltext,tag) 
+    local mtag = "<"..tag
+    local p = -1
+    local n = string.find(xmltext,mtag,1)
+    local matches = {}
+    while true do
+        -- e is the end, if we can find the next tag, its the end
+        -- if we can not then the end end of the string
+        local e = n
+        if e == nil then e = #xmltext else e = n-1 end
+        
+        -- if p is not -1 (first round)
+        if p ~= -1 then
+         table.insert(matches,string.sub(xmltext,p,e))
+        end
+        
+        -- if there is no next match then break
+        if n == nil then 
+            break 
+        else
+            p = n
+            n = string.find(xmltext,mtag,p+1)
+        end
+    end
+    return ipairs(matches)
+end
+
 ---
 --1  [Content_Types].xml
 --2  _rels/.rels
@@ -49,6 +77,10 @@ local function XLScoord(aznum)
     return XLSAZtoNum(a),tonumber(d)
 end
 
+local function get_default_style()
+    return { font= {i=false,u=false,b=false} , align=pandoc.AlignDefault}
+end
+
 local function log(debug,line)
     if(debug) then
         print("[DEBUG] "..line)
@@ -60,6 +92,9 @@ local function XLSReadFile(input,opts)
     local wb = zip_get_entry(openzip,"xl/workbook.xml")
     local rwb = zip_get_entry(openzip,"xl/_rels/workbook.xml.rels")
     local shst =  zip_get_entry(openzip,"xl/sharedStrings.xml")
+    local stylesxml = zip_get_entry(openzip,"xl/styles.xml")
+    --log(debug,stylesxml)
+
     doc = {}
 
     debug = (opts["debug"] ~= false)
@@ -68,6 +103,73 @@ local function XLSReadFile(input,opts)
     
     
     local patternAttr = "([%w:]+)=\"([^\"]+)\""
+
+    local styles = {}
+    local fonts = {}
+
+    
+
+    local fonts_cellxfs = string.match(stylesxml,"<fonts[^>]*>(.-)</fonts>")
+    if(fonts_cellxfs) then
+        --log(debug,fonts_cellxfs)
+        local fontid=0
+        for f in string.gmatch(fonts_cellxfs,"<font[^>]*>(.-)</font>") do
+            local newFont = {i=false,u=false,b=false}
+            for s,v in pairs(newFont) do
+                if string.find(f,"<"..s.."/>") then
+                    newFont[s] = true
+                end
+            end
+            fonts[fontid] = newFont
+            fontid = fontid + 1
+        end
+    end
+
+    --for i,f in pairs(fonts) do
+    --    log(debug,i.." b"..tostring(f["b"]).." i"..tostring(f["i"]).." u"..tostring(f["u"]))
+    --end
+
+    local style_cellxfs = string.match(stylesxml,"<cellXfs[^>]*>(.-)</cellXfs>")
+    if (style_cellxfs) then
+        --log(debug,style_cellxfs)
+        
+        local xfi = 0
+
+        
+        for i,xf in flaky_xml_parser(style_cellxfs,"xf") do
+            
+            
+            local style = get_default_style()
+
+            local fontId = string.match(xf,"fontId=\"(%d+)\"")
+            if (fontId ~= nil) then
+                local id = (tonumber(fontId))
+                style["font"] = fonts[id]
+                
+            end
+
+            local halign = string.match(xf,"alignment[^>]+horizontal=\"(%w+)\"")
+            if (halign ~= nil) then
+                
+                if halign == "right" then
+                    style["align"] = pandoc.AlignRight
+                elseif halign == "left" then
+                    style["align"] = pandoc.AlignLeft
+                elseif halign == "center" then
+                    style["align"] = pandoc.AlignCenter
+                end
+            end
+
+            styles[xfi] = style
+            log(debug,tostring(xfi)..xf)
+            xfi = xfi + 1
+            
+        end
+    end
+    
+    --for i,s in pairs(styles) do
+    --    print(i,tostring(s["font"]["b"]))
+    --end
 
     local sheets = {}
     --log(debug,wb)
@@ -182,12 +284,28 @@ local function XLSReadFile(input,opts)
                         table.insert(rows,cols)
                     end
                     
+                    local aligns = {}
+                    for i=1,colsn do
+                        table.insert(aligns,pandoc.AlignDefault)
+                    end
+
+
+                    --log(debug,cont)
                     for rown,row in string.gmatch(cont,"<row r=\"([%d]+)\"(.-)</row>") do
                        log(debug,"Row "..rown)
                        for celln,t,cell in string.gmatch(row,"<c r=\"([%a]+[%d]+)\"(.-)>(.-)</c>") do
                             local v = string.match(cell,"<v>(.-)</v>")
-                            log(debug,"Cell "..celln.." "..v.." "..t)
+                            
+                            local style = get_default_style()
+                            local stylematch = string.match(t,"s=\"(%d+)\"")
+                            if stylematch then
+                                local n = tonumber(stylematch)
+                                style = styles[n]
+                            end
+
                             if v then
+                                log(debug,"Cell "..celln.." "..v.." "..t)
+                                
                                 local col,row = XLScoord(celln)
                                 local localcol = col-sx+1
                                 local localrow = row-sy+1
@@ -201,14 +319,34 @@ local function XLSReadFile(input,opts)
                                             log(debug,"Err SS lookup "..v.."in"..celln)
                                         end
                                     end
+
+                                    local wrap = pandoc.Str(cv)
+                                    if style["font"]["b"] then
+                                        wrap = pandoc.Strong(wrap)
+                                    end
+
+                                    if style["font"]["u"] then
+                                        wrap = pandoc.Underline(wrap)
+                                    end
+
+                                    if style["font"]["i"] then
+                                        wrap = pandoc.Emph(wrap)
+                                    end
+
+                                    if localrow == 1 then
+                                        aligns[localcol] = style["align"]
+                                    end
+
                                     if notflh or localrow ~= 1 then
                                         local rowcoord = localrow-rplus
-                                        rows[rowcoord][localcol] = cv
+                                        rows[rowcoord][localcol] = wrap
 
                                         log(debug,"Setting cell "..rowcoord.." "..localcol..":")
                                         log(debug,cv)
                                     else
-                                        headers[localcol] = cv
+                                        headers[localcol] = wrap
+                                        
+
                                         log(debug,"Setting header"..localcol.." "..cv)
                                     end
                                 end
@@ -221,16 +359,11 @@ local function XLSReadFile(input,opts)
                         table.insert(doc,pandoc.Header(opts["headerlevel"],pandoc.Str(v["name"])))
                     end
                     local caption = ""
-                    local aligns = {}
+                    
                     local widths = {} 
                     
                     
-
-                    for i=1,colsn do
-                        table.insert(aligns,pandoc.AlignDefault)
-                        
-                    end
-
+                    
                     --pad if ommit
                     widths=opts["widths"]
                     
