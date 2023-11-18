@@ -1,3 +1,4 @@
+local xlscache = {}
 
 -- read from zip file an entry
 local function zip_get_entry(openzip,path)
@@ -292,6 +293,9 @@ local function XLSReadFile(filename,input,opts,cell)
                 if (opts["cellrange"] ~= nil) then
                     sstart = opts["cellrange"][1]
                     send = opts["cellrange"][2]
+                elseif(opts["cellonly"] ~= nil) then
+                    sstart = opts["cellonly"]
+                    send = opts["cellonly"]
                 else 
                     sstart,send = string.match(cont, "<dimension ref=\"([%a]+[%d]+):([%a]+[%d]+)\"/>")
                 end
@@ -534,7 +538,12 @@ local function XLSReadFile(filename,input,opts,cell)
         end
     end
     
-    return doc
+    if opts["cellonly"] ~= nil then
+        --if we didn't match the cell only return string
+        return pandoc.Str("")
+    else
+        return doc
+    end
 end
 
 -- default values used when using stdin
@@ -555,6 +564,15 @@ local function default_opts()
 end
 
 
+function readxls(xfile)
+    if xlscache[xfile] == nil then
+        local inp = assert(io.open(xfile, "rb"))
+        xlscache[xfile] = inp:read("*all")      
+    end
+
+    return  xlscache[xfile]
+end
+--xlsx://m365.xlsx?sheet=Variables&cell=A1
 function Str(elem)
     local xfile,suffix = string.match(elem.text,"xlsx://(.-)[%?](.+)")
     if (xfile ~= nil) then
@@ -562,11 +580,14 @@ function Str(elem)
         local cell = suffix:match("cell=([^&]+)")
 
         if cell ~= nil and sheet ~= nil then
-            local inp = assert(io.open(xfile, "rb"))
-            local data = inp:read("*all")
+            data = readxls(xfile)
+
+           
             local opts = default_opts()
             table.insert(opts["sheets"],sheet)
             opts["cellonly"] = cell
+
+            --opts["debug"] = true
 
             return XLSReadFile(xfile,data,opts)
         end
@@ -580,9 +601,8 @@ function CodeBlock (cb)
     
     if #cb.attr.classes  > 0 then
         if (cb.attr.classes[1] == "xlsx") then
-            local f = cb.attr.attributes["file"]
-            local inp = assert(io.open(f, "rb"))
-            local data = inp:read("*all")
+            local xfile = cb.attr.attributes["file"]
+            data = readxls(xfile)
             
             local opts = default_opts() 
 
@@ -622,7 +642,7 @@ function CodeBlock (cb)
                 end
             end
             
-            return XLSReadFile(f,data,opts)
+            return XLSReadFile(xfile,data,opts)
         end
     end
 end
