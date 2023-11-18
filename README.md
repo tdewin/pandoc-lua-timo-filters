@@ -34,7 +34,8 @@ headers: [Head 1,Head 2]
 ```
 ````
 
-You can also get a single field inline as xlsx://myexcel.xlsx?sheet=Data&cell=A1
+You can also get a single field inline as 
+  xlsx://myexcel.xlsx?sheet=Data&cell=A1
 
 Known issues; dates will render as the number of days since 1/1/1900. Eg 1 jan 2024 is 45291 ( something like : 365*124+(124/4+1)). This is just how excel stores dates :)
 
