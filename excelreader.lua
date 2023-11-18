@@ -1,5 +1,5 @@
 
-
+-- read from zip file an entry
 local function zip_get_entry(openzip,path)
     for i,entry in pairs(openzip.entries) do
         if entry["path"] == path then
@@ -8,17 +8,17 @@ local function zip_get_entry(openzip,path)
     end
     return ""
 end
-
+-- check if a table has a value
 local function has_value (tab, val)
     for index, value in ipairs(tab) do
         if value == val then
             return true
         end
     end
-
     return false
 end
 
+-- 
 local function flaky_xml_parser(xmltext,tag) 
     local mtag = "<"..tag
     local p = -1
@@ -47,6 +47,8 @@ local function flaky_xml_parser(xmltext,tag)
 end
 
 ---
+-- unzip -l x.xlsx
+-- unzip -p x.xlsx  xl/sharedStrings.xml
 --1  [Content_Types].xml
 --2  _rels/.rels
 --3  xl/_rels/workbook.xml.rels
@@ -86,8 +88,10 @@ local function log(debug,line)
         print("[DEBUG] "..line)
     end
 end
-local function XLSReadFile(input,opts)
+local function XLSReadFile(filename,input,opts,cell)
     local openzip = pandoc.zip.Archive(input)
+    local xlsxname = filename:gsub(".xlsx$","")
+
 
     local wb = zip_get_entry(openzip,"xl/workbook.xml")
     local rwb = zip_get_entry(openzip,"xl/_rels/workbook.xml.rels")
@@ -128,7 +132,7 @@ local function XLSReadFile(input,opts)
     --for i,f in pairs(fonts) do
     --    log(debug,i.." b"..tostring(f["b"]).." i"..tostring(f["i"]).." u"..tostring(f["u"]))
     --end
-
+    
     local style_cellxfs = string.match(stylesxml,"<cellXfs[^>]*>(.-)</cellXfs>")
     if (style_cellxfs) then
         --log(debug,style_cellxfs)
@@ -170,6 +174,75 @@ local function XLSReadFile(input,opts)
     --for i,s in pairs(styles) do
     --    print(i,tostring(s["font"]["b"]))
     --end
+    
+    sharedStrings = {}
+    s=0
+    --log(debug,"Shared string "..shst)
+    for w in string.gmatch(shst, "<si[^<]*><t[^<]*>([^<]+)</t></si>") do
+        log(debug,"Shared string "..s.." "..w)
+        sharedStrings[s] = w
+        s = s+1
+        
+    end
+
+
+
+    rels = {}
+    relbytype = {}
+    relbytarget = {}
+    for w in string.gmatch(rwb, patternTag("Relationship")) do
+        local m = {Id="-",Type="-",Target="-"}
+
+        for attr,v in string.gmatch(w,patternAttr) do
+            if m[attr] == "-" then
+                m[attr] = v
+            end
+        end
+        
+        if m["Id"] ~= "-" and m["Type"] ~= "-" and m["Target"] ~= "-" then
+            rels[m["Id"]] = m
+            if relbytype[m["Type"]] == nil then
+                relbytype[m["Type"]] = {}
+            end
+            table.insert(relbytype[m["Type"]],m)
+            relbytarget[m["Target"]] = m
+        end
+    end
+
+    rvrels = {}
+
+    if (relbytarget["richData/richValueRel.xml"] ~= nil)  then
+        local tmprel = {}
+
+        local richvaluerel = zip_get_entry(openzip,"xl/richData/richValueRel.xml")
+        i = 1
+        for rel in string.gmatch(richvaluerel,"<rel r:id=\"(%w+)\"") do
+            tmprel[rel] = i 
+            i = i+1
+        end
+
+        local richvaluerelrels = zip_get_entry(openzip,"xl/richData/_rels/richValueRel.xml.rels")
+        for rel in string.gmatch(richvaluerelrels,patternTag("Relationship")) do
+            local rid = string.match(rel,"Id=\"(%w+)\"")
+            local target = string.match(rel,"Target=\"([^\"]+)\"")
+            if rid ~= nil and target ~= nil and tmprel[rid] ~= nil then
+                local target = target:gsub("^../media/","xl/media/")
+                local outtarget = target:gsub("^../media/","")
+
+                local outstack = {}
+                table.insert(outstack,".")
+                table.insert(outstack,xlsxname)
+                table.insert(outstack,outtarget)
+                local outf = table.concat(outstack,pandoc.path.separator)
+
+            
+                rvrels[tmprel[rid]] = {src=target,out=outf}
+                log(debug,"media".." "..tmprel[rid].." "..target.." "..outf)
+            end
+        end
+    end
+
+
 
     local sheets = {}
     --log(debug,wb)
@@ -195,33 +268,7 @@ local function XLSReadFile(input,opts)
         end
     end
 
-    sharedStrings = {}
-    s=0
-    --log(debug,"Shared string "..shst)
-    for w in string.gmatch(shst, "<si[^<]*><t[^<]*>([^<]+)</t></si>") do
-        log(debug,"Shared string "..s.." "..w)
-        sharedStrings[s] = w
-        s = s+1
-        
-    end
-
-
-
-    rels = {}
-    for w in string.gmatch(rwb, patternTag("Relationship")) do
-        local m = {Id="-",Type="-",Target="-"}
-
-        for attr,v in string.gmatch(w,patternAttr) do
-            if m[attr] == "-" then
-                m[attr] = v
-            end
-        end
-        
-        if m["Id"] ~= "-" and m["Type"] ~= "-" and m["Target"] ~= "-" then
-            rels[m["Id"]] = m
-        end
-    end
-
+    
     --for n,v in pairs(rels) do
     --    print(n,v["Id"],v["Target"],v["Type"])
     --end
@@ -241,8 +288,13 @@ local function XLSReadFile(input,opts)
         if (rels[v["rid"]] and (#opts["sheets"] == 0 or includesheet)) then
             local cont = zip_get_entry(openzip,"xl/"..rels[v["rid"]]["Target"])
             if (cont ~= nil and cont ~= "") then
-                local sstart,send = string.match(cont, "<dimension ref=\"([%a]+[%d]+):([%a]+[%d]+)\"/>")
-                
+                local sstart,send = nil,nil
+                if (opts["cellrange"] ~= nil) then
+                    sstart = opts["cellrange"][1]
+                    send = opts["cellrange"][2]
+                else 
+                    sstart,send = string.match(cont, "<dimension ref=\"([%a]+[%d]+):([%a]+[%d]+)\"/>")
+                end
                 if (sstart) then
                     log(debug,"Dimension "..sstart.." "..send)
                     --A1:C5
@@ -293,6 +345,7 @@ local function XLSReadFile(input,opts)
                     --log(debug,cont)
                     for rown,row in string.gmatch(cont,"<row r=\"([%d]+)\"(.-)</row>") do
                        log(debug,"Row "..rown)
+                       
                        for celln,t,cell in string.gmatch(row,"<c r=\"([%a]+[%d]+)\"(.-)>(.-)</c>") do
                             local v = string.match(cell,"<v>(.-)</v>")
                             
@@ -307,47 +360,111 @@ local function XLSReadFile(input,opts)
                                 log(debug,"Cell "..celln.." "..v.." "..t)
                                 
                                 local col,row = XLScoord(celln)
-                                local localcol = col-sx+1
-                                local localrow = row-sy+1
+                                if sx <= col and col <= ex and sy <= row and row <= ey then
 
-                                if localrow > 0 then
-                                    local cv = v
-                                    if string.find(t,"t=\"s\"") then
-                                        cv = sharedStrings[tonumber(v)]
-                                        if cv == nil then
-                                            cv = v
-                                            log(debug,"Err SS lookup "..v.."in"..celln)
+                                    local localcol = col-sx+1
+                                    local localrow = row-sy+1
+
+                                    local pandocOpt = "str"
+                                    celltype = string.match(t,"t=\"(%a+)\"")
+                                    
+                                    if localrow > 0 then
+                                        local cv = v
+                                        -- if a cell type is defined (not a regular number)
+                                        if celltype ~= nil then
+                                            -- in case the cell is a sting, it needs to be looked up
+                                            if celltype == "s" then
+                                                cv = sharedStrings[tonumber(v)]
+                                                if cv == nil then
+                                                    cv = v
+                                                    log(debug,"Err SS lookup "..v.."in"..celln)
+                                                end
+                                            -- in case the cell is an image
+                                            elseif celltype == "e" then
+                                                local vmnum = string.match(t,"vm=\"(%d+)\"")
+                                                if vmnum then
+                                                    vmnum = tonumber(vmnum)
+                                                    if rvrels[vmnum] then
+                                                        local out = rvrels[vmnum]["out"]
+                                                        local parent = pandoc.path.directory(out)
+                                                        
+                                                        local content = zip_get_entry(openzip,rvrels[vmnum]["src"])
+                                                        
+
+                                                        local f = io.open(parent, "r")
+                                                        if f == nil then
+                                                            pandoc.system.make_directory(parent)
+                                                        else
+                                                            f:close()
+                                                        end
+
+                                                        local f = io.open(out, "r")
+                                                        if f == nil then
+                                                            local f = io.open(out, "w")
+                                                            f:write(content)
+                                                            f:close()
+                                                            log(debug,"fc extract "..rvrels[vmnum]["src"].." to "..out)
+                                                        else
+                                                            f:close()
+                                                            log(debug,"fc refusing, already exists "..rvrels[vmnum]["src"].." to "..out)
+                                                        end
+
+                                                        
+
+
+                                                        cv = pandoc.Image("",out)
+                                                        pandocOpt = "img"
+                                                    else
+                                                        log(debug,"Couldnt find vm on image celltype that works "..celltype)
+                                                    end
+                                                else
+                                                    log(debug,"Couldnt find vm on image celltype "..celltype)
+                                                end
+                                            else
+                                                log(debug,"Err unknown celltype, defaulting "..celltype.." "..celln.." "..cv.." "..cont)
+                                            end
                                         end
-                                    end
 
-                                    local wrap = pandoc.Str(cv)
-                                    if style["font"]["b"] then
-                                        wrap = pandoc.Strong(wrap)
-                                    end
+                                        --local wrap = pandoc.utils.blocks_to_inlines(pandoc.read(cv,"markdown").blocks)
+                                        local wrap = cv
+                                        if pandocOpt == "str" then
+                                            wrap = pandoc.Str(cv)
 
-                                    if style["font"]["u"] then
-                                        wrap = pandoc.Underline(wrap)
-                                    end
+                                            if style["font"]["b"] then
+                                                wrap = pandoc.Strong(wrap)
+                                            end
 
-                                    if style["font"]["i"] then
-                                        wrap = pandoc.Emph(wrap)
-                                    end
+                                            if style["font"]["u"] then
+                                                wrap = pandoc.Underline(wrap)
+                                            end
 
-                                    if localrow == 1 then
-                                        aligns[localcol] = style["align"]
-                                    end
+                                            if style["font"]["i"] then
+                                                wrap = pandoc.Emph(wrap)
+                                            end
+                                        end
 
-                                    if notflh or localrow ~= 1 then
-                                        local rowcoord = localrow-rplus
-                                        rows[rowcoord][localcol] = wrap
+                                        if opts["cellonly"] ~= nil and opts["cellonly"] == celln then
+                                            return wrap
+                                        end
 
-                                        log(debug,"Setting cell "..rowcoord.." "..localcol..":")
-                                        log(debug,cv)
-                                    else
-                                        headers[localcol] = wrap
-                                        
+                                        if localrow == 1 then
+                                            aligns[localcol] = style["align"]
+                                        end
 
-                                        log(debug,"Setting header"..localcol.." "..cv)
+                                        if notflh or localrow ~= 1 then
+                                            local rowcoord = localrow-rplus
+                                            rows[rowcoord][localcol] = wrap
+
+                                            log(debug,"Setting cell "..rowcoord.." "..localcol..":")
+                                            if (pandocOpt == "str") then
+                                                log(debug,cv)
+                                            end
+                                        else
+                                            headers[localcol] = wrap
+                                            
+
+                                            log(debug,"Setting header"..localcol.." "..cv)
+                                        end
                                     end
                                 end
                             end
@@ -420,12 +537,15 @@ local function XLSReadFile(input,opts)
     return doc
 end
 
+-- default values used when using stdin
 local function default_opts() 
     return {
         header= true,
         headerlevel= 2,
         skiprows=0,
         sheets={},
+        cellonly=nil,
+        cellrange=nil,
         firstlineheader=true,
         headers= {},
         defwidth=0,
@@ -434,6 +554,27 @@ local function default_opts()
     }
 end
 
+
+function Str(elem)
+    local xfile,suffix = string.match(elem.text,"xlsx://(.-)[%?](.+)")
+    if (xfile ~= nil) then
+        local sheet = suffix:match("sheet=([^&]+)")
+        local cell = suffix:match("cell=([^&]+)")
+
+        if cell ~= nil and sheet ~= nil then
+            local inp = assert(io.open(xfile, "rb"))
+            local data = inp:read("*all")
+            local opts = default_opts()
+            table.insert(opts["sheets"],sheet)
+            opts["cellonly"] = cell
+
+            return XLSReadFile(xfile,data,opts)
+        end
+    end
+    
+end
+
+-- when defined as a codeblock
 function CodeBlock (cb)
   
     
@@ -445,10 +586,12 @@ function CodeBlock (cb)
             
             local opts = default_opts() 
 
+            -- if a header should be printed
             if cb.attr.attributes["header"] ~= nil then
                 opts["header"] = (cb.attr.attributes["header"] ~= "false")
             end
 
+            -- what markdown header level should be chosen
             if cb.attr.attributes["headerlevel"] ~= nil then
                 opts["headerlevel"] = tonumber(cb.attr.attributes["headerlevel"])
             end
@@ -457,7 +600,7 @@ function CodeBlock (cb)
             
             rawparams = cb.text.."\n"
             --print(rawparams)
-            svals = {"firstlineheader","skiprows","debug","defwidth"}
+            svals = {"firstlineheader","skiprows","debug","defwidth","cellonly"}
             numvals = {"skiprows","defwidth"}
 
             for line in rawparams:gmatch("[^\r\n]+") do
@@ -478,12 +621,13 @@ function CodeBlock (cb)
                     end
                 end
             end
-
-            return XLSReadFile(data,opts)
+            
+            return XLSReadFile(f,data,opts)
         end
     end
 end
 
+-- when reading from stdin
 function ByteStringReader (input)
-    return pandoc.Pandoc(XLSReadFile(input,default_opts()))
+    return pandoc.Pandoc(XLSReadFile("stdin",input,default_opts()))
 end
