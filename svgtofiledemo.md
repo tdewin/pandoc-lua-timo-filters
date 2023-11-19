@@ -6,7 +6,7 @@ title: Demo of inline SVG
 
 # Just Inline SVG
 Svg inline (should be visible) without templating
-```svg {out=./media/plain alt="Hello Plain SVG"}
+```svg {out=./testout/media/plain alt="Hello Plain SVG"}
 <svg viewbox="0 0 560 110" width="14.82cm" height="2.91cm" xmlns="http://www.w3.org/2000/svg">
    <style>
   .text {
@@ -74,7 +74,7 @@ template (should not be visibe) in final document:
 Did you see it?
 
 The yaml is not a real processor, it just splits on "---" and finds "key: name", notice the extra space, eg ": "
-```svg {ref=digitx out=./media/stat1 alt="Hello Template" namefield="name"}
+```svg {ref=digitx out=./testout/media/stat1 alt="Hello Template" namefield="name"}
 ---
 big: 100%
 small: Happy Users
@@ -138,7 +138,7 @@ s
 </text> 
 </svg>
 ```
-```svg {ref=menu out=./media/stat1 alt="Hello Template" namefield="name" fromfile="menu.yaml"}
+```svg {ref=menu out=./testout/media/stat1 alt="Hello Template" namefield="name" fromfile="./svgtofile/menu.yaml"}
 ```
 
 # Mini text templating
@@ -181,22 +181,22 @@ This is useful if you want to make tables
 
 ```
 
-```use {ref=plainmenu namefield="name" blockdata="insert" fromfile="menu.yaml"}
+```use {ref=plainmenu namefield="name" blockdata="insert" fromfile="./svgtofile/menu.yaml"}
 | Pizza | Ingredients | Price |
 | --- | --- | --- |
 
 ```
 
-```svg {ref=digitx out=./media/stat1 alt="Hello Template" namefield="name"}
+```svg {ref=digitx out=./testout/media/stat1 alt="Hello Template" namefield="name"}
 ---
 big: 2
 small: Referencing
 name: secondref
 ```
 
-```template {name="digitxfromfile" fromfile=./fromfile.svg} 
+```template {name="digitxfromfile" fromfile=./svgtofile/fromfile.svg} 
 ```
-```svg {ref=digitxfromfile out=./media/planets alt="Hello Template" namefield="name"}
+```svg {ref=digitxfromfile out=./testout/media/planets alt="Hello Template" namefield="name"}
 ---
 big: 9
 small: Planets

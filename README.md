@@ -1,10 +1,11 @@
 # pandoc-lua-timo-filters
 
 
-| plugin          | description                                            |
-|-----------------|--------------------------------------------------------|
-| excelreader.lua | Reads data from xlsx files and produces a pandoc table |
-| svgtofile.lua   | Inline svg filter (codeblock svg) with templating      |
+| plugin                | description                                               |
+|-----------------------|-----------------------------------------------------------|
+| excelreader.lua       | Reads data from xlsx files and produces a pandoc table    |
+| imgdirexplode.lua     | Import images from a directory with templating            |
+| svgtofile.lua         | Inline svg filter (codeblock svg) with templating         |
 
 All is MIT License
 
@@ -44,6 +45,6 @@ Known issues; dates will render as the number of days since 1/1/1900. Eg 1 jan 2
 
 Will convert the inline svg to real files
 ```bash
-pandoc -L svgtofile.lua -o mydoc.docx svgtofiledemo.md
+pandoc -L svgtofile.lua -o testout/mydoc.docx svgtofiledemo.md
 ```
 
