@@ -3,3 +3,6 @@ imgdirexploded.md
 **/.DS_Store
 tmp*
 tmp/
+exp/
+qr/
+*.docx

@@ -34,7 +34,8 @@ local opts = {
     docOrient = "portrait",
     rPr="",
     pPr="",
-    repl=""
+    repl="",
+    titlePg=""
 }
 for i,a in ipairs(arg) do
     n,v = a:match("-([%w]+)=\"?([^\"]+)\"?")
@@ -67,7 +68,7 @@ for i,docx in ipairs(arg) do
             end
         elseif opts.action == "liststyles" then
             local content = zip_get_entry(openzip,"word/styles.xml")
-            for m in content:gmatch("<w:style[^>]+>") do
+            for m in content:gmatch("<w:style [^>]+>") do
                 if m:match(opts.filter) then
                     local stype = m:match("w:type=\"([^\"]+)\"")
                     local sid = m:match("w:styleId=\"([^\"]+)\"")
@@ -81,11 +82,32 @@ for i,docx in ipairs(arg) do
             if opts.name ~= "" then
                 tsn = opts.name
             end
-            local cts = "<w:style w:type=\"table\" w:customStyle=\"1\" w:styleId=\""..tsn.."\"><w:name w:val=\""..tsn.."\"/><w:basedOn w:val=\"TableNormal\"/><w:uiPriority w:val=\"99\"/><w:rsid w:val=\"002E3FD9\"/><w:pPr><w:spacing w:after=\"0\"/></w:pPr><w:tblPr><w:tblBorders><w:top w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/><w:left w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/><w:bottom w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/><w:right w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/></w:tblBorders></w:tblPr><w:tblStylePr w:type=\"firstRow\"><w:rPr><w:color w:val=\"FAFAFA\" w:themeColor=\"background1\"/><w:u w:val=\"none\"/></w:rPr><w:tblPr/><w:tcPr><w:tcBorders><w:bottom w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/></w:tcBorders><w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"E63462\" w:themeFill=\"accent1\"/></w:tcPr></w:tblStylePr></w:style>"
-            content = content:gsub("</w:styles>",cts.."</w:styles>")
-                        
-            mod = true
-            zip_set_entry(openzip,file,content)
+            if content:match("w:styleId=\""..tsn)== nil then
+                local cts = "<w:style w:type=\"table\" w:customStyle=\"1\" w:styleId=\""..tsn.."\"><w:name w:val=\""..tsn.."\"/><w:basedOn w:val=\"TableNormal\"/><w:uiPriority w:val=\"99\"/><w:pPr><w:spacing w:after=\"0\"/></w:pPr><w:tblPr><w:tblBorders><w:top w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/><w:left w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/><w:bottom w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/><w:right w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/></w:tblBorders></w:tblPr><w:tblStylePr w:type=\"firstRow\"><w:rPr><w:color w:val=\"FAFAFA\" w:themeColor=\"background1\"/><w:u w:val=\"none\"/></w:rPr><w:tblPr/><w:tcPr><w:tcBorders><w:bottom w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"auto\"/></w:tcBorders><w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"E63462\" w:themeFill=\"accent1\"/></w:tcPr></w:tblStylePr></w:style>"
+                content = content:gsub("</w:styles>",cts.."</w:styles>")
+                            
+                mod = true
+                zip_set_entry(openzip,file,content)
+            else
+                print("Already found style with name "..tsn)
+            end
+        elseif opts.action == "addstyle" then
+            local file = "word/styles.xml"
+            local content = zip_get_entry(openzip,file)
+            local tsn = "customstyle"
+            if opts.name ~= "" then
+                tsn = opts.name
+            end
+
+            if content:match("w:styleId=\""..tsn)== nil then
+                local cts = "<w:style w:type=\"paragraph\" w:customStyle=\"1\" w:styleId=\""..tsn.."\"><w:name w:val=\""..tsn.."\" /><w:qFormat /><w:basedOn w:val=\"Normal\"/>  <w:next w:val=\"Normal\"/> </w:style>"
+                content = content:gsub("</w:styles>",cts.."</w:styles>")
+                            
+                mod = true
+                zip_set_entry(openzip,file,content)
+            else
+                print("Already found style with name "..tsn)
+            end
         elseif opts.action == "updatestyle" then
             local file = "word/styles.xml"
             local content = zip_get_entry(openzip,file)
@@ -167,10 +189,11 @@ for i,docx in ipairs(arg) do
             end
         elseif opts.action == "liststyle" then
             local content = zip_get_entry(openzip,"word/styles.xml")
-            for repl,attr,c in content:gmatch("(<w:style([^>]+)>(.-)</w:style>)") do
+            for repl,attr,c in content:gmatch("(<w:style ([^>]+)>(.-)</w:style>)") do
                     local stype = attr:match("w:type=\"([^\"]+)\"")
                     local sid = attr:match("w:styleId=\"([^\"]+)\"")
                     if sid == opts.name then
+                        
                         print(repl)
                     end
             end
@@ -268,6 +291,23 @@ for i,docx in ipairs(arg) do
                 --<w:pgSz w:h="15840" w:w="12240" /> -- us
                 --<w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/> -- a4
                 --use pgSz=man for manual values
+                if opts.titlePg ~= "" then
+                    local repl = "<w:titlePg/>"
+                    local existing = content:match("(<w:sectPr[^>]*>.-)</w:sectPr>")
+
+                    if content:match("<w:sectPr%s*/>") ~= nil then
+                        content = content:gsub("<w:sectPr%s*/>","<w:sectPr>"..repl.."</w:sectPr>")
+                    elseif content:match("<w:titlePg/") ~= nil then
+                        print("already titlePg detected")
+                    elseif existing ~= nil  then
+                        content = content:gsub(existing,existing.."\n"..repl)
+                    else
+                        error("couldnt find empty sectPr or pgSz")
+                    end
+
+                    mod = true
+
+                end
                 if opts.pgSz ~= "" then
                     if opts.pgSz == "a4" then
                         opts.docH = 16838
@@ -286,11 +326,14 @@ for i,docx in ipairs(arg) do
                     print("updating doc to hxw ",opts.docH,opts.docW,opts.docOrient)
 
                     local repl = "<w:pgSz w:h=\""..opts.docH.."\" w:w=\""..opts.docW.."\" w:orient=\""..opts.docOrient.."\" />"
+                    local existing = content:match("(<w:sectPr[^>]*>.-)</w:sectPr>")
 
                     if content:match("<w:sectPr%s*/>") ~= nil then
                         content = content:gsub("<w:sectPr%s*/>","<w:sectPr>"..repl.."</w:sectPr>")
                     elseif content:match("<w:pgSz") ~= nil then
                         content = content:gsub("<w:pgSz[^>]+/>",repl)
+                    elseif existing then
+                        content = content:gsub(existing,existing.."\n"..repl)
                     else
                         error("couldnt find empty sectPr or pgSz")
                     end
