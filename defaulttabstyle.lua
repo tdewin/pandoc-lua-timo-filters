@@ -12,8 +12,7 @@ function Meta(meta)
                                                                                                                                                                             
 end                                                                                                                                                                         
                                                                                                                                                                             
-function Table(elem)                                                                                                                                                        
-  print(tabstyle)                                                                                                                                                           
+function Table(elem)                                                                                                                                                                                                                                                                                                                 
   if elem.attr.attributes["custom-style"] == nil then                                                                                                                       
     elem.attr.attributes["custom-style"] = tabstyle                                                                                                                         
   end                                                                                                                                                                       
