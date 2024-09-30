@@ -5,9 +5,15 @@ function Writer (doc, opts)
     --https://pandoc.org/lua-filters.html#type-table
     local filter = {
       Table = function (tb)
-          --print(tb["head"]["rows"])
           local flatified = {}
-
+          for i, r in ipairs(tb["head"]["rows"]) do
+                local flatifiedrow = {}
+                for k,c in ipairs(r["cells"]) do
+                    local content = "\""..pandoc.utils.stringify(c["contents"]).."\""
+                    table.insert(flatifiedrow,content)
+                end
+                table.insert(flatified,table.concat(flatifiedrow,","))
+          end
           for i, v in ipairs(tb["bodies"]) do
             for j,r in ipairs(v["body"]) do
                 local flatifiedrow = {}
