@@ -4,7 +4,9 @@
 -- only works with pandoc 3.4>
 -- set a style for a table with a codeblock called meta data 
 -- ```tablemeta {custom-style=tablestyle}
+-- ColWidth=0.5,0.5
 -- ```
+-- If you define ColWidth, the numbers of columns has to match the amount of number you list. If you want full length, the sum of these floating numbers should add up to 1, eg 0.5+0.5=1 or 0.25+0.75=1
 -- the style will reset to default supplied by meta so every custom table should be decorated with a codeblock
                                                                                       
 local tablestyle = "table"
